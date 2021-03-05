@@ -65,6 +65,8 @@ class Video():
 
         # Initialize a VideoCapture object
         cap = cv2.VideoCapture(self.file_path)
+        w = cap.get(3)
+        h = cap.get(4)
 
         # Create an instance of SORT
         KalmanBoxTracker.count = 0
@@ -99,6 +101,13 @@ class Video():
                 num_people = bboxes.shape[0]
 
             if num_people > 0:
+
+                # Making sure the bounding box is inside the image
+                bboxes[:, 0] = np.maximum(bboxes[:, 0], 0)
+                bboxes[:, 1] = np.maximum(bboxes[:, 1], 0)
+                bboxes[:, 2] = np.minimum(bboxes[:, 2], w)
+                bboxes[:, 3] = np.minimum(bboxes[:, 3], h)
+                
                 people = torch.empty((num_people, 3, 384, 288))
                 points = np.empty((num_people, 17, 3))
                 for i in range(num_people): # For each person
