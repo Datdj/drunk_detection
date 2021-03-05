@@ -7,6 +7,7 @@ import torch
 from torchvision.transforms import transforms
 from models2.hrnet import HRNet
 import numpy as np
+from tqdm import tqdm
 
 def main():
 
@@ -35,6 +36,12 @@ def main():
         help='minimum number of poses detected for a series to be considered valid',
         default=7
     )
+    parser.add_argument(
+        '--hrnet-weight',
+        type=str,
+        help='hrnet weight file',
+        default='weight/pose_hrnet_w48_384x288.pth'
+    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -57,7 +64,7 @@ def main():
     hrnet = HRNet(48)
     hrnet.to(device)
     hrnet.eval()
-    checkpoint = torch.load('weight/pose_hrnet_w48_384x288.pth', map_location=device)
+    checkpoint = torch.load(args.hrnet_weight, map_location=device)
     hrnet.load_state_dict(checkpoint)
 
     # generate fight data
@@ -65,7 +72,7 @@ def main():
 
 def generate_data(data_dir, detector, transform, device, pose_model, out):
     data = []
-    for filename in os.listdir(data_dir):
+    for filename in tqdm(os.listdir(data_dir)):
         video = Video(os.path.join(data_dir, filename), detector, transform, device, pose_model)
         video.extract_poses()
         generator = PoseSeriesGenerator(video, 10, 7)
