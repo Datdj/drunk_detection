@@ -96,7 +96,7 @@ def generate_data(data_dir, detector, transform, device, pose_model, out):
     data[:, :, :, :2][mask] = (data[:, :, :, :2][mask] - min) / (max - min)
 
     # get the origin by taking the average of four key points on the body (left_shoulder, right_shoulder, left_hip, right_hip)
-    origin = (np.sum(data[:, :, 1:3, :2]mask, axis=1, keepdims=True) + np.sum(data[:, :, 7:9, :2][mask], axis=1, keepdims=True)) / 4
+    origin = (np.sum(data[:, :, 1:3, :2][mask], axis=1, keepdims=True) + np.sum(data[:, :, 7:9, :2][mask], axis=1, keepdims=True)) / 4
 
     # shift the origin
     data[:, :, :, :2][mask] = data[:, :, :, :2][mask] - origin
