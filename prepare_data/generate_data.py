@@ -88,7 +88,7 @@ def generate_data(data_dir, detector, transform, device, pose_model, out):
 
     # get the head by taking the average of five key points on the head (nose, left_eye, right_eye, left_ear, right_ear)
     data[:, :, 4][mask] = np.mean(data[:, :, :5][mask], axis=1)
-    data[mask] = data[:, :, 4:][mask]
+    data = data[:, :, 4:]
 
     # min-max normalization
     min = np.min(data[:, :, :, :2][mask], axis=1, keepdims=True)
