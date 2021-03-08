@@ -9,19 +9,31 @@ import cv2
 import torch
 
 class PoseSeriesGenerator():
+    '''
+    This will take in a video and spit out a list of series of poses extracted
+    from the video. I probably should have wrote this as a function instead of
+    a class though :v
+    '''
+
     def __init__(self, video, series_length, min_num_poses):
         self.video = video
         self.series_length = series_length
         self.min_num_poses = min_num_poses
         
     def generate(self):
+        '''
+        The function that spits out a a list of series of poses AND a boolean
+        mask that shows which frame in a series is valid (we could lost some
+        frames due to misdetections by the detector)
+        '''
 
         series = []
+        mask = []
         # for each person appearing in the video
         for person in self.video.people:
 
             # If a person appears in n frames and we want a series of poses of
-            # length m then we will randomly generate n // m series of this2 
+            # length m then we will randomly generate n // m series of this 
             # person. For example, if a person appears in 70 frame and the
             # series' length is 10 then we generate 7 series from this person
             num_series_to_get = person.num_frames // self.series_length
@@ -29,8 +41,9 @@ class PoseSeriesGenerator():
             for start in starts:
                 frames = [i for i in range(start, start + 10) if i in person.mapping.keys()]
                 if len(frames) >= self.min_num_poses:
+                    mask.append([True if i in person.mapping.keys() else False for i in range(start, start + 10)])
                     series.append([person.frames[person.mapping[i]].pose if i in person.mapping.keys() else np.zeros((17, 3)) for i in range(start, start + 10)])
-        return series
+        return series, mask
 
 class Video():
     def __init__(self, file_path, detector, transform, device, pose_model):

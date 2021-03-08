@@ -71,28 +71,35 @@ def main():
     generate_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
 
 def generate_data(data_dir, detector, transform, device, pose_model, out):
+    '''
+    Generate series of poses from a folder of videos and then normalize them.
+    '''
     data = []
+    mask = []
     for filename in tqdm(os.listdir(data_dir)):
         video = Video(os.path.join(data_dir, filename), detector, transform, device, pose_model)
         video.extract_poses()
         generator = PoseSeriesGenerator(video, 10, 7)
-        data.extend(generator.generate())
+        series, mask_ = generator.generate()
+        data.extend(series)
+        mask.extend(mask_)
     data = np.asarray(data)
+    mask = np.asarray(mask)
 
     # get the head by taking the average of five key points on the head (nose, left_eye, right_eye, left_ear, right_ear)
-    data[:, :, 4] = np.mean(data[:, :, :5], axis=2)
-    data = data[:, :, 4:]
+    data[:, :, 4][mask] = np.mean(data[:, :, :5][mask], axis=1)
+    data[mask] = data[:, :, 4:][mask]
 
     # min-max normalization
-    min = np.min(data[:, :, :, :2], axis=2, keepdims=True)
-    max = np.max(data[:, :, :, :2], axis=2, keepdims=True)
-    data[:, :, :, :2] = (data[:, :, :, :2] - min) / (max - min)
+    min = np.min(data[:, :, :, :2][mask], axis=1, keepdims=True)
+    max = np.max(data[:, :, :, :2][mask], axis=1, keepdims=True)
+    data[:, :, :, :2][mask] = (data[:, :, :, :2][mask] - min) / (max - min)
 
     # get the origin by taking the average of four key points on the body (left_shoulder, right_shoulder, left_hip, right_hip)
-    origin = (np.sum(data[:, :, 1:3, :2], axis=2, keepdims=True) + np.sum(data[:, :, 7:9, :2], axis=2, keepdims=True)) / 4
+    origin = (np.sum(data[:, :, 1:3, :2]mask, axis=1, keepdims=True) + np.sum(data[:, :, 7:9, :2][mask], axis=1, keepdims=True)) / 4
 
     # shift the origin
-    data[:, :, :, :2] = data[:, :, :, :2] - origin
+    data[:, :, :, :2][mask] = data[:, :, :, :2][mask] - origin
 
     # save into file
     np.save(out, data)
