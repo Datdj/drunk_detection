@@ -184,6 +184,7 @@ class Person():
         self.num_frames = 1
         self.mapping = {first_frame: 0}
         self.is_normalized = False
+        self.valid_frames = None
 
     def update(self, bbox, pose, frame):
         self.frames.append(Frame(frame, bbox, pose))
@@ -198,6 +199,19 @@ class Person():
             frame.normalize()
 
         self.is_normalized = True
+
+    def get_valid_frame(self, series_length, min_num_poses):
+        '''
+        A valid frame is a frame that can be the start of a series
+        '''
+        self.valid_frames = []
+        if self.num_frames < min_num_poses:
+            return
+        for i in self.mapping.keys()[:-min_num_poses + 1]:
+            test = [j in range(i, i + series_length) if j in self.mapping.keys()]
+            if len(test) >= min_num_poses:
+                self.valid_frames.append(i)
+        return
 
 class Frame():
     '''
