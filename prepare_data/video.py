@@ -52,6 +52,7 @@ class Video():
         self.file_path = file_path
         self.mapping = {}
         self.poses_extracted = False
+        self.poses_normalized = False
         self.detector = detector
         self.transform = transform
         self.device = device
@@ -160,6 +161,19 @@ class Video():
         self.poses_extracted = True
         return
 
+    def normalize_poses(self):
+        if not self.poses_extracted:
+            print("Poses haven't been extracted.")
+            return
+        if self.poses_normalized:
+            print('Poses have already been normalized.')
+            return
+        
+        for person in self.people:
+            person.normalize()
+        
+        self.poses_normalized = True
+
 class Person():
     '''
     A person with a unique id in a video
@@ -169,11 +183,21 @@ class Person():
         self.frames = [Frame(first_frame, first_bbox, first_pose)]
         self.num_frames = 1
         self.mapping = {first_frame: 0}
+        self.is_normalized = False
 
     def update(self, bbox, pose, frame):
         self.frames.append(Frame(frame, bbox, pose))
         self.mapping[frame] = self.num_frames
         self.num_frames += 1
+
+    def normalize(self):
+        if self.is_normalized:
+            return
+
+        for frame in self.frames:
+            frame.normalize()
+
+        self.is_normalized = True
 
 class Frame():
     '''
@@ -183,3 +207,29 @@ class Frame():
         self.index = index
         self.bbox = bbox
         self.pose = pose
+        self.is_normalized = False
+
+    def normalize(self):
+        if self.is_normalized:
+            return
+
+        # get the head by taking the average of five key points on
+        # the head (nose, left_eye, right_eye, left_ear, right_ear)
+        self.pose[4] = np.mean(self.pose[:5], axis=0)
+        self.pose = self.pose[4:]
+
+        # min-max normalization
+        min_ = np.min(self.pose[:, :2], axis=0, keepdims=True)
+        max_ = np.max(self.pose[:, :2], axis=0, keepdims=True)
+        self.pose[:, :2] = (self.pose[:, :2] - min_) / (max_ - min_)
+
+        # get the origin by taking the average of four key points on
+        # the body (left_shoulder, right_shoulder, left_hip, right_hip)
+        origin = (np.sum(self.pose[1:3, :2], axis=0, keepdims=True) + np.sum(self.pose[7:9, :2], axis=0, keepdims=True)) / 4
+
+        # shift the origin
+        self.pose[:, :2] = self.pose[:, :2] - origin
+
+        self.is_normalized = True
+
+        # TO DO: Do this normalization right after HRNet to save time and simplify things
