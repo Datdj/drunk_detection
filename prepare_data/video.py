@@ -200,7 +200,7 @@ class Person():
 
         self.is_normalized = True
 
-    def get_valid_frame(self, series_length, min_num_poses):
+    def get_valid_frames(self, series_length, min_num_poses):
         '''
         A valid frame is a frame that can be the start of a series
         '''
