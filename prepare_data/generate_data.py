@@ -8,6 +8,7 @@ from torchvision.transforms import transforms
 from models2.hrnet import HRNet
 import numpy as np
 from tqdm import tqdm
+import pickle
 
 def main():
 
@@ -103,6 +104,17 @@ def generate_data(data_dir, detector, transform, device, pose_model, out):
 
     # save into file
     np.save(out, data)
+
+def gen_train_data(data_dir, detector, transform, device, pose_model, out):
+
+    data = []
+    for filename in tqdm(os.listdir(data_dir)):
+        video = Video(os.path.join(data_dir, filename), detector, transform, device, pose_model)
+        video.extract_poses()
+        video.normalize_poses()
+        data.extend(video.people)
+    with open(out, 'wb') as writer:
+        pickle.dump(data, writer)
 
 if __name__ == '__main__':
     main()
