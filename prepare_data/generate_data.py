@@ -69,7 +69,8 @@ def main():
     hrnet.load_state_dict(checkpoint)
 
     # generate fight data
-    generate_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
+    # generate_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
+    gen_train_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
 
 def generate_data(data_dir, detector, transform, device, pose_model, out):
     '''
