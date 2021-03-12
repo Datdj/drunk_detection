@@ -1,3 +1,5 @@
+import sys
+sys.path.append('prepare_data')
 from torch.utils.data import Dataset
 import numpy as np
 import pickle
@@ -25,7 +27,7 @@ class ViolenceDataset(Dataset):
         self.series_length = series_length
         self.min_num_poses = min_num_poses
         num_fight = len(fight)
-        self.data = fight.extend(non_fight)
+        self.data = fight + non_fight
         self.label = np.zeros(len(self.data))
         self.label[:num_fight] = 1
 
@@ -35,7 +37,8 @@ class ViolenceDataset(Dataset):
     def __getitem__(self, index):
         person = self.data[index]
         start = random.choice(person.valid_frames)
-        series = [person.frames[person.mapping[i]].pose if i in person.mapping.keys() else np.zeros((13, 3)) for i in range(start, start + self.series_length)]
+        series = np.asarray([person.frames[person.mapping[i]].pose if i in person.mapping.keys() else np.zeros((13, 3)) for i in range(start, start + self.series_length)])
+        series = series.reshape((self.series_length, -1))
         return series, self.label[index]
 
 class ViolenceDataset_old_version(Dataset):

@@ -207,8 +207,8 @@ class Person():
         self.valid_frames = []
         if self.num_frames < min_num_poses:
             return
-        for i in self.mapping.keys()[:-min_num_poses + 1]:
-            test = [j in range(i, i + series_length) if j in self.mapping.keys()]
+        for i in self.mapping.keys():
+            test = [j for j in range(i, i + series_length) if j in self.mapping.keys()]
             if len(test) >= min_num_poses:
                 self.valid_frames.append(i)
         return
