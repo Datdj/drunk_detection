@@ -8,6 +8,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.nn as nn
+import torch
 
 def main():
 
@@ -58,13 +59,15 @@ def main():
     args = parser.parse_args()
 
     # Load LSTM model
-    lstm_model = DatLSTM(39, 64, 2)
+    lstm_model = DatLSTM(39, 64, 2, args.series_length)
 
     # Define an optimizer
-    sgd = optim.SGD(lstm_model.parameters(), args.learning_rate)
+    # sgd = optim.SGD(lstm_model.parameters(), args.learning_rate)
+    adam = optim.Adam(lstm_model.parameters(), args.learning_rate)
 
     # Define a loss function
-    bce = nn.BCELoss()
+    # bce = nn.BCELoss()
+    ce = nn.CrossEntropyLoss()
 
     # Load data
     dataset = ViolenceDataset(args.fight, args.non_fight, args.series_length, args.min_poses)
@@ -73,10 +76,13 @@ def main():
     train_loader = DataLoader(dataset, args.batch_size, shuffle=True)
 
     # Create a Trainer
-    trainer = Trainer(lstm_model, train_loader, args.num_epochs, sgd, bce)
+    trainer = Trainer(lstm_model, train_loader, args.num_epochs, adam, ce)
 
     # Train
     lstm_model = trainer.train()
+
+    # Save the model
+    torch.save(lstm_model.state_dict(), 'lstm_13_3_2021.pt')
 
 if __name__ == '__main__':
     main()

@@ -28,14 +28,14 @@ class Trainer():
 
             # forward + backward + optimize
             outputs = self.model(inputs.type(torch.float32))
-            labels = self.binary_to_one_hot(labels) # convert labels into one hot format
-            loss = self.loss_function(outputs, labels)
+            # labels = self.binary_to_one_hot(labels) # convert labels into one hot format
+            loss = self.loss_function(outputs, labels.type(torch.long))
             loss.backward()
             self.optimizer.step()
 
             # print statistics
             running_loss += loss.item()
-            once_in_a_while = 5
+            once_in_a_while = 20
             if i % once_in_a_while == once_in_a_while - 1: # print out the loss every once in a while
                 print('epoch %d, step %5d - loss: %.3f' %
                     (epoch + 1, i + 1, running_loss / once_in_a_while))

@@ -96,6 +96,9 @@ class Video():
             if ret == False:
                 break
 
+            # TODO: read a batch of frames before passing them through yolo and hrnet,
+            # hopefully that will speed up data generation process
+
             # Run yolov5 on the frame
             result = self.detector(frame[:, :, ::-1])
 
