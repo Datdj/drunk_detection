@@ -177,6 +177,10 @@ class Video():
         
         self.poses_normalized = True
 
+    def get_valid_frames(self):
+        for person in self.people:
+            person.get_valid_frames()
+
 class Person():
     '''
     A person with a unique id in a video
