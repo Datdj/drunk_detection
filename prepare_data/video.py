@@ -177,9 +177,9 @@ class Video():
         
         self.poses_normalized = True
 
-    def get_valid_frames(self):
+    def get_valid_frames(self, series_length, min_num_poses):
         for person in self.people:
-            person.get_valid_frames()
+            person.get_valid_frames(series_length, min_num_poses)
 
 class Person():
     '''
