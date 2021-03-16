@@ -2,7 +2,7 @@ import sys
 sys.path.append('.')
 from train.trainer import Trainer
 from models.lstm import DatLSTM
-from prepare_data.violence_dataset import ViolenceDataset
+from prepare_data.violence_dataset import ViolenceDataset, ViolenceValDataset
 import argparse
 import numpy as np
 from torch.utils.data import DataLoader
@@ -23,6 +23,18 @@ def main():
         '--non-fight',
         type=str,
         help='the path to non_fight data',
+        required=True
+    )
+    parser.add_argument(
+        '--fight-val',
+        type=str,
+        help='the path to fight val data',
+        required=True
+    )
+    parser.add_argument(
+        '--non-fight-val',
+        type=str,
+        help='the path to non_fight val data',
         required=True
     )
     parser.add_argument(
@@ -71,6 +83,7 @@ def main():
 
     # Load data
     dataset = ViolenceDataset(args.fight, args.non_fight, args.series_length, args.min_poses)
+    val_dataset = ViolenceValDataset(args.fight_val, args.non_fight_val, args.series_length, args.min_poses)
 
     # Create dataloader
     train_loader = DataLoader(dataset, args.batch_size, shuffle=True)

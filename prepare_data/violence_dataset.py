@@ -41,6 +41,26 @@ class ViolenceDataset(Dataset):
         series = series.reshape((self.series_length, -1))
         return series, self.label[index]
 
+class ViolenceValDataset(ViolenceDataset):
+    def __init__(self, fight_file, non_fight_file, series_length, min_num_poses):
+        super().__init__(fight_file, non_fight_file, series_length, min_num_poses)
+        self.series_idx = []
+        for i in range(len(self.data)):
+            person = self.data[i]
+            for start in person.valid_frames:
+                self.series_idx.append((i, start, self.label[i]))
+    
+    def __len__(self):
+        return len(self.series_idx)
+
+    def __getitem__(self, index):
+        person = self.data[self.series_idx[index][0]]
+        start = self.series_idx[index][1]
+        series = np.asarray([person.frames[person.mapping[i]].pose if i in person.mapping.keys() else np.zeros((13, 3)) for i in range(start, start + self.series_length)])
+        series = series.reshape((self.series_length, -1))
+        label = self.series_idx[index][2]
+        return series, label
+
 class ViolenceDataset_old_version(Dataset):
     '''
         Args:
