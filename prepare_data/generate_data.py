@@ -57,6 +57,7 @@ def main():
         device = torch.device('cpu')
 
     # load yolov5x
+    # yolov5x = torch.hub.load('yolov5-master', 'yolov5x', pretrained=True, source='local')
     yolov5x = torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)
     yolov5x.to(device)
 

@@ -3,6 +3,7 @@ sys.path.append('.')
 from train.trainer import Trainer
 from models.lstm import DatLSTM
 from prepare_data.violence_dataset import ViolenceDataset, ViolenceValDataset
+import os
 import argparse
 import numpy as np
 from torch.utils.data import DataLoader
@@ -68,6 +69,12 @@ def main():
         help='number of epochs to train',
         default=10
     )
+    parser.add_argument(
+        '--save-dir',
+        type=str,
+        help='the folder to save best model in',
+        required=True
+    )
     args = parser.parse_args()
 
     # Load LSTM model
@@ -87,15 +94,17 @@ def main():
 
     # Create dataloader
     train_loader = DataLoader(dataset, args.batch_size, shuffle=True)
+    valid_loader = DataLoader(val_dataset, args.batch_size, shuffle=False)
+
+    # Create save dir
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
 
     # Create a Trainer
-    trainer = Trainer(lstm_model, train_loader, args.num_epochs, adam, ce)
+    trainer = Trainer(lstm_model, train_loader, valid_loader, args.num_epochs, adam, ce)
 
     # Train
-    lstm_model = trainer.train()
-
-    # Save the model
-    torch.save(lstm_model.state_dict(), 'lstm_13_3_2021.pt')
+    trainer.train(args.save_dir)
 
 if __name__ == '__main__':
     main()
