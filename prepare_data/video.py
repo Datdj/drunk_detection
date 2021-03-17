@@ -46,7 +46,7 @@ class PoseSeriesGenerator():
         return series, mask
 
 class Video():
-    def __init__(self, file_path, detector, transform, device, pose_model):
+    def __init__(self, file_path, detector, transform, device, pose_model, format_):
         self.num_people = 0
         self.people = []
         self.file_path = file_path
@@ -57,6 +57,10 @@ class Video():
         self.transform = transform
         self.device = device
         self.pose_model = pose_model
+        if format_ in ['video', 'images']:
+            self.format_ = format_ # format is either 'video' or 'images'
+        else:
+            raise ValueError("format_ must be either 'video' or 'images'")
 
     def add_new_person(self, id, first_bbox, first_pose, first_frame):
         self.people.append(Person(id, first_bbox, first_pose, first_frame))
@@ -163,6 +167,132 @@ class Video():
         # Update the state
         self.poses_extracted = True
         return
+
+    def extract_poses_v2(self, yolo_batch_size=16, hrnet_batch_size=16):
+        if self.poses_extracted:
+            print('Poses have already been extracted.')
+            return
+
+        if self.format_ == 'video':
+            # Initialize a VideoCapture object
+            cap = cv2.VideoCapture(self.file_path)
+            w = cap.get(3)
+            h = cap.get(4)
+        else:
+            pass
+
+        # Create an instance of SORT
+        KalmanBoxTracker.count = 0
+        mot_tracker = Sort()
+
+        frame_idx = 0
+
+        EOF = False
+        while not EOF:
+
+            if self.format_ == 'video':
+                frames = []
+                for i in range(yolo_batch_size):
+                    # Read a single frame
+                    ret, frame = cap.read()
+                    # Check for end of video
+                    if ret == False:
+                        EOF = True
+                        break
+                    frames.append(frame[:, :, ::-1])
+            else:
+                pass
+
+            # Run yolov5 on the frames
+            detections = self.detector(frames)
+
+            bboxes = []
+            indices = []
+            current_index = 0
+            for i in range(len(frames)):
+                # Get bounding boxes
+                bboxes_i = detections.pred[i].cpu().numpy()
+                bboxes_i = bboxes_i[bboxes_i[:, -1] == 0][:, :-1]
+                bboxes_i = bboxes_i[bboxes_i[:, -1] > 0.6]
+                num_people_i = bboxes_i.shape[0]
+
+                # Update SORT
+                if num_people_i == 0:
+                    bboxes_i = mot_tracker.update()
+                    indices.append((-1, -1))
+                else:
+                    bboxes_i = mot_tracker.update(bboxes_i)
+                    num_people_i = bboxes_i.shape[0]
+                    if num_people_i > 0:
+                        bboxes.append(bboxes_i)
+                        indices.append((current_index, current_index + num_people_i))
+                        current_index += num_people_i
+                    else:
+                        indices.append((-1, -1))
+            if len(bboxes) > 0:
+                debug = bboxes
+                bboxes = np.concatenate(bboxes)
+                # Making sure the bounding box is inside the image
+                bboxes[:, 0] = np.maximum(bboxes[:, 0], 0)
+                bboxes[:, 1] = np.maximum(bboxes[:, 1], 0)
+                bboxes[:, 2] = np.minimum(bboxes[:, 2], w)
+                bboxes[:, 3] = np.minimum(bboxes[:, 3], h)
+                num_people = bboxes.shape[0]
+                people = torch.empty((num_people, 3, 384, 288))
+                points = np.empty((num_people, 17, 3))
+                for i in range(len(frames)):
+                    if indices[i] != (-1, -1):
+                        for j in range(indices[i][0], indices[i][1]):
+                            # Get rounded coordinates for cropping
+                            x1 = int(np.round(bboxes[j, 0]))
+                            y1 = int(np.round(bboxes[j, 1]))
+                            x2 = int(np.round(bboxes[j, 2]))
+                            y2 = int(np.round(bboxes[j, 3]))
+                            # Crop out the person
+                            person = frames[i][y1:y2, x1:x2]
+                            person = cv2.cvtColor(person, cv2.COLOR_BGR2RGB)
+                            people[j] = self.transform(person)
+                            # TODO: resize individual person but normalize a whole batch
+
+                # Pass through HRNet
+                poses = np.empty((num_people, 17, 96, 72))
+                people = people.to(self.device)
+                for i in range(0, num_people, hrnet_batch_size):
+                    ii = min(i + hrnet_batch_size, num_people)
+                    poses[i:ii] = self.pose_model(people[i:ii]).detach().cpu().numpy()
+                
+                # Get back the original coordinate
+                try:
+                    poses = poses.reshape((num_people, 17, -1))
+                except:
+                    print(debug)
+                    exit()
+                max_point = np.unravel_index(np.argmax(poses, axis=2), shape=(96, 72))
+                points[:, :, 1] = max_point[0] / 96 * (bboxes[:, 3:4] - bboxes[:, 1:2]) + bboxes[:, 1:2]
+                points[:, :, 0] = max_point[1] / 72 * (bboxes[:, 2:3] - bboxes[:, 0:1]) + bboxes[:, 0:1]
+                points[:, :, 2] = np.max(poses, axis=2)
+            
+            # Update data
+            for i in range(len(frames)):
+                if indices[i] != (-1, -1):
+                    for j in range(indices[i][0], indices[i][1]):
+                        if not self.is_person_exist(bboxes[j, -1]):
+                            self.add_new_person(bboxes[j, -1], bboxes[j, :-1], points[j], frame_idx)
+                        else:
+                            self.update_old_person(bboxes[j, -1], bboxes[j, :-1], points[j], frame_idx)
+                frame_idx += 1
+        
+        if self.format_ == 'video':
+            # Release the VideoCapture
+            cap.release()
+        else:
+            pass
+
+        # Update the state
+        self.poses_extracted = True
+        return
+    
+    # TODO: Maybe in version 3, we can extract all people before extracting poses.
 
     def normalize_poses(self):
         if not self.poses_extracted:

@@ -43,6 +43,12 @@ def main():
         help='hrnet weight file',
         default='weight/pose_hrnet_w48_384x288.pth'
     )
+    parser.add_argument(
+        '--input_format',
+        type=str,
+        help='video or images',
+        default='video'
+    )
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -70,7 +76,7 @@ def main():
 
     # generate fight data
     # generate_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
-    gen_train_data(args.data_path, yolov5x, transform, device, hrnet, args.out)
+    gen_train_data(args.data_path, yolov5x, transform, device, hrnet, args.out, args.input_format)
 
 def generate_data(data_dir, detector, transform, device, pose_model, out):
     '''
@@ -106,12 +112,12 @@ def generate_data(data_dir, detector, transform, device, pose_model, out):
     # save into file
     np.save(out, data)
 
-def gen_train_data(data_dir, detector, transform, device, pose_model, out):
+def gen_train_data(data_dir, detector, transform, device, pose_model, out, input_format):
 
     data = []
     for filename in tqdm(os.listdir(data_dir)):
-        video = Video(os.path.join(data_dir, filename), detector, transform, device, pose_model)
-        video.extract_poses()
+        video = Video(os.path.join(data_dir, filename), detector, transform, device, pose_model, input_format)
+        video.extract_poses_v2()
         video.normalize_poses()
         data.extend(video.people)
     with open(out, 'wb') as writer:
