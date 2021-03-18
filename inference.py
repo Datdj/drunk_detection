@@ -10,6 +10,8 @@ from torchvision.transforms import transforms
 from models2.hrnet import HRNet
 from lstm import DatLSTM
 import torch.nn.functional as F
+import os
+from tqdm import tqdm
 
 class ViolenceDetector():
     def __init__(self, person_detector, pose_estimater, fight_model, series_length, min_num_poses, device):
@@ -22,7 +24,7 @@ class ViolenceDetector():
 
     def predict_and_save(self, video, out_file):
         # extract poses from this video
-        video.extract_poses()
+        video.extract_poses_v2()
 
         # normalize all the poses
         video.normalize_poses()
@@ -88,7 +90,7 @@ def main():
     parser.add_argument(
         '--video',
         type=str,
-        help='The path to the video',
+        help='The path to the video or the folder containing videos',
         required=True
     )
     parser.add_argument(
@@ -121,7 +123,15 @@ def main():
         help='output file path',
         required=True
     )
+    parser.add_argument(
+        '--mode',
+        type=str,
+        help="'video' or 'folder'",
+        default='video'
+    )
     args = parser.parse_args()
+    if args.mode not in ['video', 'folder']:
+        raise ValueError('mode must be video or folder')
 
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -146,9 +156,6 @@ def main():
     checkpoint = torch.load(args.hrnet_weight, map_location=device)
     hrnet.load_state_dict(checkpoint)
 
-    # Load a video
-    vid = Video(args.video, yolov5x, transform, device, hrnet)
-
     # Load pretrained lstm model
     checkpoint = torch.load(args.lstm_weight)
     lstm_model = DatLSTM(39, 64, 2, args.series_length)
@@ -159,8 +166,18 @@ def main():
     # Load the detector
     violence_detector = ViolenceDetector(yolov5x, hrnet, lstm_model, args.series_length, args.min_poses, device)
 
-    # inference
-    violence_detector.predict_and_save(vid, args.out)
+    if args.mode == 'video':
+
+        # Load a video
+        vid = Video(args.video, yolov5x, transform, device, hrnet, 'video')
+
+        # inference
+        violence_detector.predict_and_save(vid, args.out)
+    
+    else:
+        for video in tqdm(os.listdir(args.video)):
+            vid = Video(os.path.join(args.video, video), yolov5x, transform, device, hrnet, 'video')
+            violence_detector.predict_and_save(vid, os.path.join(args.out, video))
 
 if __name__ == '__main__':
     main()

@@ -7,6 +7,7 @@ import random
 import numpy as np
 import cv2
 import torch
+import os
 
 class PoseSeriesGenerator():
     '''
@@ -179,7 +180,12 @@ class Video():
             w = cap.get(3)
             h = cap.get(4)
         else:
-            pass
+            images = os.listdir(self.file_path)
+            num_frames = len(images)
+            start = 0
+            _ = cv2.imread(os.path.join(self.file_path, images[0]))
+            w = _.shape[1]
+            h = _.shape[0]
 
         # Create an instance of SORT
         KalmanBoxTracker.count = 0
@@ -190,8 +196,8 @@ class Video():
         EOF = False
         while not EOF:
 
+            frames = []
             if self.format_ == 'video':
-                frames = []
                 for i in range(yolo_batch_size):
                     # Read a single frame
                     ret, frame = cap.read()
@@ -201,7 +207,19 @@ class Video():
                         break
                     frames.append(frame[:, :, ::-1])
             else:
-                pass
+                if start + yolo_batch_size < num_frames:
+                    end = start + yolo_batch_size
+                else:
+                    end = num_frames
+                    EOF = True
+                for i in range(start, end):
+                    # Read a single frame
+                    frame = cv2.imread(os.path.join(self.file_path, images[i]))
+                    frames.append(frame[:, :, ::-1])
+                start = end
+            
+            if len(frames) == 0:
+                continue
 
             # Run yolov5 on the frames
             detections = self.detector(frames)
@@ -285,8 +303,6 @@ class Video():
         if self.format_ == 'video':
             # Release the VideoCapture
             cap.release()
-        else:
-            pass
 
         # Update the state
         self.poses_extracted = True
